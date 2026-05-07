@@ -1,0 +1,16 @@
+{
+  "backend_url": "http://127.0.0.1:8000/predict",
+  "request_timeout_sec": 3,
+  "fallback_speed_mph": 45,
+  "poll_interval_sec": 60,
+
+  "tomtom_api_key": "r0dOGDbwKMxLS5mer68NVh7yHlhWGc4t",
+  "latitude": 35.2700,
+  "longitude": -120.6700,
+  "station_id": "KSBP",
+  "segment_id": "us101_slo_observed",
+  "metar_station": "KSBP",
+
+  "local_model_path": "edge/raspberry_pi/models/xgboost_congestion.onnx",
+  "local_features_path": "edge/raspberry_pi/models/xgboost_congestion_features.json"
+}
