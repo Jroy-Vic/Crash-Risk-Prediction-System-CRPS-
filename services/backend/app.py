@@ -1,5 +1,6 @@
 from pathlib import Path
 import sys
+import requests
 
 import polars as pl
 from fastapi import FastAPI
@@ -35,6 +36,14 @@ def predict(request: PredictionRequest):
 
     result = predictor.predict_one(feature_row)
 
+    recommended_speed_mph = result.recommended_speed_mph
+
+    if request.speed_limit_mph is not None:
+        recommended_speed_mph = min(
+            recommended_speed_mph,
+            int(request.speed_limit_mph)
+        )
+
     return PredictionResponse(
         segment_id=result.segment_id,
         station_id=result.station_id,
@@ -42,6 +51,6 @@ def predict(request: PredictionRequest):
         speed_ratio=result.speed_ratio,
         current_congestion=result.current_congestion,
         future_congestion_probability=result.future_congestion_probability,
-        recommended_speed_mph=result.recommended_speed_mph,
+        recommended_speed_mph=recommended_speed_mph,
         model_name=result.model_name,
     )

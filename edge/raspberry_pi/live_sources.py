@@ -1,4 +1,6 @@
 import requests
+import json
+from helpers.road_targeting import fetch_osm_road_point
 
 
 def knots_to_mph(knots):
@@ -41,6 +43,24 @@ def fetch_tomtom_traffic(config):
         "speed_ratio": speed / free_flow if free_flow > 0 else 1.0,
     }
 
+def fetch_targeted_tomtom_traffic(config):
+    if "target_latitude" in config and "target_longitude" in config:
+        road = {
+            "latitude": config["target_latitude"],
+            "longitude": config["target_longitude"],
+            "osm_way_id": "manual",
+            "road_name": "manual_target",
+            "road_ref": config.get("target_road_ref", "101"),
+        }
+    else:
+        road = fetch_osm_road_point(config)
+
+    targeted_config = dict(config)
+    targeted_config["latitude"] = road["latitude"]
+    targeted_config["longitude"] = road["longitude"]
+
+    traffic = fetch_tomtom_traffic(targeted_config)
+    return traffic
 
 def fetch_metar_weather(config):
     station = config["metar_station"]

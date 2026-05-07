@@ -9,6 +9,7 @@ class PredictionRequest(BaseModel):
     speed_mph: float
     free_flow_speed_mph: float
     speed_ratio: float
+    speed_limit_mph: Optional[float] = None
 
     flow_veh_per_interval: float
     occupancy_pct: float

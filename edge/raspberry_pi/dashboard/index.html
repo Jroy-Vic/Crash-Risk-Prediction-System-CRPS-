@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CRPS Dashboard</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <main class="app">
+    <header class="top-bar">
+      <div>Last Updated: <span id="updated">--</span></div>
+      <div id="connection" class="connected">Connecting...</div>
+    </header>
+
+    <section id="alert-banner" class="alert-banner hidden">
+        SLOW DOWN
+    </section>
+
+    <div id="speed-shell" class="speed-shell">
+        <section class="speed-sign">
+            <div class="sign-text">SPEED</div>
+            <div class="sign-text">LIMIT</div>
+            <div id="speed">--</div>
+        </section>
+    </div>
+
+    <section class="panel risk-panel">
+      <div>
+        <span class="label">RISK LEVEL</span>
+      </div>
+      <span id="risk" class="risk-value">--</span>
+      <div class="risk-bar">
+        <div id="risk-fill"></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <span class="label">CONGESTION PROBABILITY</span>
+      <span id="probability" class="value">--</span>
+    </section>
+
+    <section class="panel">
+      <span class="label">CURRENT SPEED</span>
+      <span id="current-speed" class="value">--</span>
+    </section>
+
+    <section class="panel">
+      <span class="label">SPEED LIMIT CAP</span>
+      <span id="speed-limit" class="value">--</span>
+    </section>
+
+    <section class="panel">
+      <span class="label">MODE</span>
+      <span id="mode" class="mode-value">--</span>
+    </section>
+
+    <footer>Crash Risk Prediction System (CRPS)</footer>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

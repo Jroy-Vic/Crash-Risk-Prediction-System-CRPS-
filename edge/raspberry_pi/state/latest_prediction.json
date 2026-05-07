@@ -1,0 +1,13 @@
+{
+  "segment_id": "simulation_cycle",
+  "station_id": "SIM",
+  "free_flow_speed_mph": 65,
+  "speed_limit_mph": 65,
+  "mode": "simulation",
+  "name": "MEDIUM",
+  "speed_mph": 52,
+  "speed_ratio": 0.8,
+  "future_congestion_probability": 0.55,
+  "recommended_speed_mph": 55,
+  "timestamp": "2026-05-07T11:00:34.717232"
+}

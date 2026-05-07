@@ -2,22 +2,28 @@ import json
 import time
 from pathlib import Path
 
-import joblib
-import pandas as pd
 import requests
 
 from datetime import datetime
-from live_sources import fetch_tomtom_traffic, fetch_metar_weather
+from live_sources import fetch_targeted_tomtom_traffic, fetch_metar_weather
 
 
 CONFIG_PATH = Path("edge/raspberry_pi/config.json")
+ROAD_METADATA_CACHE_PATH = Path("edge/raspberry_pi/helpers/cache/road_metadata_cache.json")
+STATE_PATH = Path("edge/raspberry_pi/state/latest_prediction.json")
 
 
 def load_config():
     with open(CONFIG_PATH, "r") as f:
         return json.load(f)
 
+def load_road_metadata_cache():
+    if not ROAD_METADATA_CACHE_PATH.exists():
+        return {}
 
+    with open(ROAD_METADATA_CACHE_PATH, "r") as f:
+        return json.load(f)
+    
 def build_sample_payload():
     speed_mph = 45.0
     free_flow_speed_mph = 65.0
@@ -65,35 +71,53 @@ def build_sample_payload():
     }
 
 def build_live_payload(config):
+    road_cache = load_road_metadata_cache()
     now = datetime.now()
 
-    traffic = fetch_tomtom_traffic(config)
-    weather = fetch_metar_weather(config)
+    traffic = fetch_targeted_tomtom_traffic(config)
+    try:
+        weather = fetch_metar_weather(config)
+    except Exception as e:
+        print(f"Weather unavailable. Using default weather. Reason: {e}")
+        weather = {
+            "temperature_f": config.get("default_temperature_f", 60),
+            "precipitation_in": 0,
+            "visibility_miles": 10,
+            "wind_speed_mph": 0,
+            "is_rain": 0,
+            "is_low_visibility": 0,
+        }
 
     speed_mph = traffic["speed_mph"]
     free_flow_speed_mph = traffic["free_flow_speed_mph"]
+
+    speed_limit = road_cache.get(
+    "speed_limit_mph",
+    config.get("speed_limit_mph")
+    )
 
     return {
         "station_id": config.get("station_id", "ksbp_live"),
         "segment_id": config.get("segment_id", "slo_live_segment"),
         "timestamp": now.isoformat(),
 
-        "latitude": config["latitude"],
-        "longitude": config["longitude"],
+        "latitude": road_cache.get("target_latitude", config["latitude"]),
+        "longitude": road_cache.get("target_longitude", config["longitude"]),
+        "speed_limit_mph": speed_limit,
 
         "speed_mph": speed_mph,
         "free_flow_speed_mph": free_flow_speed_mph,
         "speed_ratio": traffic["speed_ratio"],
 
-        "flow_veh_per_interval": 0,
-        "occupancy_pct": 0,
+        "flow_veh_per_interval": config.get("default_flow_veh_per_interval", 300),
+        "occupancy_pct": config.get("default_occupancy_pct", 5),
 
         "speed_delta_5min": 0,
         "speed_delta_15min": 0,
         "speed_rolling_mean_15min": speed_mph,
         "speed_rolling_std_15min": 0,
-        "flow_rolling_mean_15min": 0,
-        "occupancy_rolling_mean_15min": 0,
+        "flow_rolling_mean_15min": config.get("default_flow_veh_per_interval", 300),
+        "occupancy_rolling_mean_15min": config.get("default_occupancy_pct", 5),
 
         "temperature_f": weather["temperature_f"],
         "precipitation_in": weather["precipitation_in"],
@@ -146,22 +170,25 @@ def load_local_model(config):
 def recommend_speed(payload, future_congestion_probability):
     speed_mph = payload.get("speed_mph", 45.0)
     free_flow = payload.get("free_flow_speed_mph", 65.0)
+    speed_limit = payload.get("speed_limit_mph")
 
     speed_ratio = speed_mph / free_flow if free_flow > 0 else 1.0
 
     if speed_ratio < 0.6:
-        return 25
+        advisory = 25
+    elif future_congestion_probability >= 0.85:
+        advisory = max(25, int(free_flow * 0.75))
+    elif future_congestion_probability >= 0.70:
+        advisory = max(25, int(free_flow * 0.85))
+    elif future_congestion_probability >= 0.55:
+        advisory = max(25, int(free_flow * 0.95))
+    else:
+        advisory = int(free_flow)
 
-    if future_congestion_probability >= 0.80:
-        return max(25, int(speed_mph - 15))
+    if speed_limit is not None:
+        advisory = min(advisory, int(speed_limit))
 
-    if future_congestion_probability >= 0.60:
-        return max(25, int(speed_mph - 10))
-
-    if future_congestion_probability >= 0.40:
-        return max(25, int(speed_mph - 5))
-
-    return int(speed_mph)
+    return advisory
 
 
 def local_model_prediction(config, payload):
@@ -242,18 +269,45 @@ def print_result(result):
     print("-" * 40)
 
 
+def write_latest_prediction(payload, result):
+    STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+    output = {
+        "timestamp": payload.get("timestamp"),
+        "segment_id": payload.get("segment_id"),
+        "station_id": payload.get("station_id"),
+        "speed_mph": payload.get("speed_mph"),
+        "free_flow_speed_mph": payload.get("free_flow_speed_mph"),
+        "speed_ratio": payload.get("speed_ratio"),
+        "speed_limit_mph": payload.get("speed_limit_mph"),
+        "future_congestion_probability": result.get("future_congestion_probability"),
+        "recommended_speed_mph": result.get("recommended_speed_mph"),
+        "mode": result.get("mode"),
+    }
+
+    with open(STATE_PATH, "w") as f:
+        json.dump(output, f, indent=2)
+
+
 def main():
     config = load_config()
 
     while True:
         try:
             payload = build_live_payload(config)
+            print("LIVE PAYLOAD:")
+            print(json.dumps(payload, indent=2))
         except Exception as e:
             print("Live data unavailable. Using sample payload.")
             print(f"Live data reason: {e}")
             payload = build_sample_payload()
-            
+
         result = get_prediction(config, payload)
+        write_latest_prediction(payload, result)
+
+        print("BACKEND / PREDICTION RESPONSE:")
+        print(json.dumps(result, indent=2))
+
         print_result(result)
         time.sleep(config.get("poll_interval_sec", 5))
 
