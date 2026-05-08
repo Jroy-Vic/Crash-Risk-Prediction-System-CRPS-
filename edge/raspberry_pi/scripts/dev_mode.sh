@@ -1,0 +1,1 @@
+sudo nmcli connection up netplan-wlan0-SpectrumSetup-3F

@@ -6,6 +6,7 @@
   <title>CRPS Dashboard</title>
   <link rel="stylesheet" href="/static/style.css" />
 </head>
+
 <body>
   <main class="app">
     <header class="top-bar">
@@ -14,15 +15,15 @@
     </header>
 
     <section id="alert-banner" class="alert-banner hidden">
-        SLOW DOWN
+      SLOW DOWN
     </section>
 
     <div id="speed-shell" class="speed-shell">
-        <section class="speed-sign">
-            <div class="sign-text">SPEED</div>
-            <div class="sign-text">LIMIT</div>
-            <div id="speed">--</div>
-        </section>
+      <section class="speed-sign">
+        <div class="sign-text">SPEED</div>
+        <div class="sign-text">LIMIT</div>
+        <div id="speed">--</div>
+      </section>
     </div>
 
     <section class="panel risk-panel">
@@ -55,9 +56,14 @@
       <span id="mode" class="mode-value">--</span>
     </section>
 
+    <section class="panel compact-status">
+      <span class="label">SYSTEM</span>
+      <span id="sensor-summary" class="value">GPS -- / Motion --</span>
+    </section>
+
     <footer>Crash Risk Prediction System (CRPS)</footer>
   </main>
 
-  <script src="/static/app.js"></script>
+  <script src="/static/app.js?v=21"></script>
 </body>
 </html>

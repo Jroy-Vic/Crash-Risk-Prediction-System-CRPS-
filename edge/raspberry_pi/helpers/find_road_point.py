@@ -1,5 +1,5 @@
 import json
-from live_sources import fetch_tomtom_traffic
+from edge.raspberry_pi.helpers.live_sources import fetch_tomtom_traffic
 
 
 API_KEY = "r0dOGDbwKMxLS5mer68NVh7yHlhWGc4t"

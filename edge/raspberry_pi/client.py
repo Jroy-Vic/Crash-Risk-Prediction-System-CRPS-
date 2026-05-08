@@ -1,12 +1,22 @@
-import json
-import time
+import sys
 from pathlib import Path
 
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.append(str(ROOT))
+
+import json
+import time
 import requests
 
-from datetime import datetime
-from live_sources import fetch_targeted_tomtom_traffic, fetch_metar_weather
+from datetime import datetime, timezone
+from edge.raspberry_pi.helpers.live_sources import fetch_targeted_tomtom_traffic, fetch_metar_weather
 
+from src.utils.crps_logger import CRPSLogger, get_risk_level
+logger = CRPSLogger()
+
+from src.features.feature_reconstructor import reconstruct_features
+from src.hardware.sensor_reader import load_latest_sensors
+from src.hardware.refresh_controller import choose_poll_interval
 
 CONFIG_PATH = Path("edge/raspberry_pi/config.json")
 ROAD_METADATA_CACHE_PATH = Path("edge/raspberry_pi/helpers/cache/road_metadata_cache.json")
@@ -75,6 +85,7 @@ def build_live_payload(config):
     now = datetime.now()
 
     traffic = fetch_targeted_tomtom_traffic(config)
+
     try:
         weather = fetch_metar_weather(config)
     except Exception as e:
@@ -88,55 +99,73 @@ def build_live_payload(config):
             "is_low_visibility": 0,
         }
 
-    speed_mph = traffic["speed_mph"]
-    free_flow_speed_mph = traffic["free_flow_speed_mph"]
-
     speed_limit = road_cache.get(
-    "speed_limit_mph",
-    config.get("speed_limit_mph")
+        "speed_limit_mph",
+        config.get("speed_limit_mph", 65)
     )
 
-    return {
+    raw_live_data = {
         "station_id": config.get("station_id", "ksbp_live"),
         "segment_id": config.get("segment_id", "slo_live_segment"),
         "timestamp": now.isoformat(),
 
         "latitude": road_cache.get("target_latitude", config["latitude"]),
         "longitude": road_cache.get("target_longitude", config["longitude"]),
+
+        "speed_mph": traffic["speed_mph"],
+        "free_flow_speed_mph": traffic["free_flow_speed_mph"],
+        "speed_ratio": traffic.get("speed_ratio"),
+
+        "temperature_f": weather.get("temperature_f", 60),
+        "precipitation": weather.get(
+            "precipitation",
+            weather.get("precipitation_in", 0)
+        ),
+        "precipitation_in": weather.get(
+            "precipitation_in",
+            weather.get("precipitation", 0)
+        ),
+        "visibility_miles": weather.get("visibility_miles", 10),
+        "wind_speed_mph": weather.get("wind_speed_mph", 0),
+        "is_rain": weather.get("is_rain", 0),
+        "is_low_visibility": weather.get("is_low_visibility", 0),
+
         "speed_limit_mph": speed_limit,
-
-        "speed_mph": speed_mph,
-        "free_flow_speed_mph": free_flow_speed_mph,
-        "speed_ratio": traffic["speed_ratio"],
-
-        "flow_veh_per_interval": config.get("default_flow_veh_per_interval", 300),
-        "occupancy_pct": config.get("default_occupancy_pct", 5),
-
-        "speed_delta_5min": 0,
-        "speed_delta_15min": 0,
-        "speed_rolling_mean_15min": speed_mph,
-        "speed_rolling_std_15min": 0,
-        "flow_rolling_mean_15min": config.get("default_flow_veh_per_interval", 300),
-        "occupancy_rolling_mean_15min": config.get("default_occupancy_pct", 5),
-
-        "temperature_f": weather["temperature_f"],
-        "precipitation_in": weather["precipitation_in"],
-        "visibility_miles": weather["visibility_miles"],
-        "wind_speed_mph": weather["wind_speed_mph"],
-        "is_rain": weather["is_rain"],
-        "is_low_visibility": weather["is_low_visibility"],
-
-        "crash_count_current_window": 0,
-        "crash_count_past_1hr": 0,
-        "crash_count_past_24hr": 0,
-        "crash_count_past_7d": 0,
-
-        "hour": now.hour,
-        "day_of_week": now.weekday(),
-        "month": now.month,
-        "is_weekend": 1 if now.weekday() >= 5 else 0,
-        "is_rush_hour": 1 if now.hour in [7, 8, 9, 16, 17, 18] else 0,
     }
+
+    payload = reconstruct_features(raw_live_data)
+
+    # Preserve timestamp from live read
+    payload["timestamp"] = raw_live_data["timestamp"]
+
+    # Extra model features not produced by basic reconstruction yet
+    speed_mph = payload["speed_mph"]
+
+    payload.setdefault("speed_delta_5min", 0)
+    payload.setdefault("speed_delta_15min", 0)
+    payload.setdefault("speed_rolling_mean_15min", speed_mph)
+    payload.setdefault("speed_rolling_std_15min", 0)
+
+    payload.setdefault(
+        "flow_rolling_mean_15min",
+        payload.get("flow_veh_per_interval")
+    )
+    payload.setdefault(
+        "occupancy_rolling_mean_15min",
+        payload.get("occupancy_pct")
+    )
+
+    payload.setdefault("crash_count_current_window", 0)
+    payload.setdefault("crash_count_past_1hr", 0)
+    payload.setdefault("crash_count_past_24hr", 0)
+    payload.setdefault("crash_count_past_7d", 0)
+
+    payload.setdefault("is_low_visibility", raw_live_data["is_low_visibility"])
+
+    # Backend may expect precipitation_in
+    payload.setdefault("precipitation_in", raw_live_data["precipitation_in"])
+
+    return payload
 
 def request_backend_prediction(config, payload):
     response = requests.post(
@@ -302,14 +331,99 @@ def main():
             print(f"Live data reason: {e}")
             payload = build_sample_payload()
 
+            # logger.log_prediction({
+            #     "segment_id": payload.get("segment_id"),
+            #     "latitude": payload.get("latitude"),
+            #     "longitude": payload.get("longitude"),
+            #     "speed_mph": payload.get("speed_mph"),
+            #     "free_flow_speed_mph": payload.get("free_flow_speed_mph"),
+            #     "speed_ratio": payload.get("speed_ratio"),
+            #     "temperature_f": payload.get("temperature_f"),
+            #     "visibility_miles": payload.get("visibility_miles"),
+            #     "wind_speed_mph": payload.get("wind_speed_mph"),
+            #     "precipitation": payload.get("precipitation"),
+            #     "is_rain": payload.get("is_rain"),
+            #     "probability": probability,
+            #     "recommended_speed_mph": recommended_speed,
+            #     "speed_limit_mph": payload.get("speed_limit_mph"),
+            #     "risk_level": get_risk_level(probability),
+            #     "mode": "fallback",
+            #     "source": "local_or_rule_based",
+            #     "backend_status": "failed",
+            #     "error": str(e),
+            # })
+
         result = get_prediction(config, payload)
         write_latest_prediction(payload, result)
+
+        probability = result.get("future_congestion_probability")
+        recommended_speed = result.get("recommended_speed_mph")
+
+        risk_level = get_risk_level(probability) if probability is not None else "UNKNOWN"
+
+        log_row = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "segment_id": payload.get("segment_id"),
+            "latitude": payload.get("latitude"),
+            "longitude": payload.get("longitude"),
+
+            "speed_mph": payload.get("speed_mph"),
+            "free_flow_speed_mph": payload.get("free_flow_speed_mph"),
+            "speed_ratio": payload.get("speed_ratio"),
+
+            # Use reconstructed values
+            "flow": payload.get("flow", payload.get("flow_veh_per_interval")),
+            "occupancy": payload.get("occupancy", payload.get("occupancy_pct")),
+
+            "temperature_f": payload.get("temperature_f"),
+            "visibility_miles": payload.get("visibility_miles"),
+            "wind_speed_mph": payload.get("wind_speed_mph"),
+            "precipitation": payload.get("precipitation", payload.get("precipitation_in", 0)),
+            "is_rain": payload.get("is_rain", 0),
+
+            "hour": payload.get("hour"),
+            "day_of_week": payload.get("day_of_week"),
+            "rush_hour": payload.get("rush_hour", payload.get("is_rush_hour")),
+
+            "speed_delta_5min": payload.get("speed_delta_5min"),
+            "speed_delta_15min": payload.get("speed_delta_15min"),
+            "speed_rolling_mean_15min": payload.get("speed_rolling_mean_15min"),
+            "speed_rolling_std_15min": payload.get("speed_rolling_std_15min"),
+            "flow_rolling_mean_15min": payload.get("flow_rolling_mean_15min"),
+            "occupancy_rolling_mean_15min": payload.get("occupancy_rolling_mean_15min"),
+            "is_low_visibility": payload.get("is_low_visibility"),
+            "precipitation_in": payload.get("precipitation_in"),
+            "crash_count_current_window": payload.get("crash_count_current_window"),
+            "crash_count_past_1hr": payload.get("crash_count_past_1hr"),
+            "crash_count_past_24hr": payload.get("crash_count_past_24hr"),
+            "crash_count_past_7d": payload.get("crash_count_past_7d"),
+
+            "probability": probability,
+            "recommended_speed_mph": recommended_speed,
+            "speed_limit_mph": payload.get("speed_limit_mph"),
+
+            "risk_level": risk_level,
+            "mode": result.get("mode", "backend"),
+            "source": result.get("source", "tomtom_metar_reconstructed"),
+            "backend_status": result.get("backend_status", "ok"),
+            "error": "",
+        }
+
+        logger.log_prediction(log_row)
 
         print("BACKEND / PREDICTION RESPONSE:")
         print(json.dumps(result, indent=2))
 
         print_result(result)
-        time.sleep(config.get("poll_interval_sec", 5))
+        
+        sensor_data = load_latest_sensors()
+
+        poll_interval = choose_poll_interval(
+            sensor_data,
+            default_interval=config.get("poll_interval_sec", 5)
+        )
+
+        time.sleep(poll_interval)
 
 
 if __name__ == "__main__":

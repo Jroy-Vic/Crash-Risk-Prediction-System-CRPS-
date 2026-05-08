@@ -10,18 +10,16 @@ BASE_DIR = Path(__file__).resolve().parent
 DASHBOARD_DIR = BASE_DIR / "dashboard"
 STATE_PATH = BASE_DIR / "state" / "latest_prediction.json"
 
-
 app = FastAPI(title="CRPS Pi Dashboard")
 
 app.mount("/static", StaticFiles(directory=DASHBOARD_DIR), name="static")
 
 
-@app.get("/")
+@app.api_route("/", methods=["GET", "HEAD"])
 def dashboard():
     return FileResponse(DASHBOARD_DIR / "index.html")
 
-
-@app.get("/api/latest")
+@app.api_route("/api/latest", methods=["GET", "HEAD"])
 def latest_prediction():
     if not STATE_PATH.exists():
         return JSONResponse(
@@ -30,6 +28,18 @@ def latest_prediction():
         )
 
     return FileResponse(STATE_PATH)
+
+@app.get("/api/sensors")
+def latest_sensors():
+    sensor_path = BASE_DIR / "state" / "latest_sensors.json"
+
+    if not sensor_path.exists():
+        return JSONResponse(
+            status_code=404,
+            content={"error": "No sensor data available yet"},
+        )
+
+    return FileResponse(sensor_path)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,13 @@
+[Unit]
+Description=CRPS Dashboard Server
+After=network.target
+
+[Service]
+User=jroy_vic
+WorkingDirectory=/home/jroy_vic/crps_pi_client
+ExecStart=/home/jroy_vic/crps_pi_client/venv/bin/python edge/raspberry_pi/dashboard_server.py
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

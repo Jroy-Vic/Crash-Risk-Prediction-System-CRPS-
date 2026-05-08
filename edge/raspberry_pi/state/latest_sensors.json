@@ -1,0 +1,22 @@
+{
+  "timestamp": "2026-05-08T05:28:09.186194+00:00",
+  "source": "simulated",
+  "gps": {
+    "latitude": 35.24125,
+    "longitude": -120.6385,
+    "vehicle_speed_mph": 52.3,
+    "heading_deg": 24.6,
+    "gps_quality": "simulated",
+    "fix_valid": true
+  },
+  "imu": {
+    "accel_x_mps2": 0.002,
+    "accel_y_mps2": 0.004,
+    "accel_z_mps2": 9.809,
+    "gyro_z_rps": 0.002,
+    "hard_brake": false,
+    "sharp_turn": false,
+    "imu_quality": "simulated"
+  },
+  "scenario": "normal"
+}

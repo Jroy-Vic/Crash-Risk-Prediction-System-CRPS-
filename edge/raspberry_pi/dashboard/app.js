@@ -7,11 +7,21 @@ alertAudio.loop = false;
 
 document.addEventListener("click", () => {
   audioUnlocked = true;
+
   alertAudio.play().then(() => {
     alertAudio.pause();
     alertAudio.currentTime = 0;
   }).catch(() => {});
 }, { once: true });
+
+
+function setText(id, value) {
+  const el = document.getElementById(id);
+  if (el) {
+    el.textContent = value;
+  }
+}
+
 
 function triggerHighRiskAlert() {
   if (navigator.vibrate) {
@@ -23,6 +33,7 @@ function triggerHighRiskAlert() {
     alertAudio.play().catch(() => {});
   }
 }
+
 
 function getRisk(probability) {
   if (probability === null || probability === undefined) {
@@ -42,6 +53,7 @@ function getRisk(probability) {
   return { text: "LOW", className: "low", percent };
 }
 
+
 function formatTime(timestamp) {
   if (!timestamp) return "--";
 
@@ -52,6 +64,7 @@ function formatTime(timestamp) {
   });
 }
 
+
 function updateNightMode() {
   const hour = new Date().getHours();
 
@@ -61,6 +74,7 @@ function updateNightMode() {
     document.body.classList.remove("night-mode");
   }
 }
+
 
 function updateRiskStyling(risk) {
   const speedSign = document.getElementById("speed-shell");
@@ -90,12 +104,44 @@ function updateRiskStyling(risk) {
     alertBanner.classList.add("blink");
 
     if (previousRisk !== "HIGH") {
-        triggerHighRiskAlert();
+      triggerHighRiskAlert();
     }
   }
 
   previousRisk = risk.text;
 }
+
+
+function summarizeSensors(data) {
+  const gpsStatus = data.gps?.fix_valid ? "GPS OK" : "GPS MISSING";
+
+  let motionStatus = "Motion Normal";
+
+  if (data.imu?.hard_brake) {
+    motionStatus = "Hard Braking";
+  } else if (data.imu?.sharp_turn) {
+    motionStatus = "Sharp Turn";
+  }
+
+  return `${gpsStatus} / ${motionStatus}`;
+}
+
+
+async function fetchSensors() {
+  try {
+    const response = await fetch("/api/sensors", { cache: "no-store" });
+
+    if (!response.ok) {
+      throw new Error("No sensor data");
+    }
+
+    const data = await response.json();
+    setText("sensor-summary", summarizeSensors(data));
+  } catch (error) {
+    setText("sensor-summary", "GPS Missing / Motion Unknown");
+  }
+}
+
 
 async function updateDashboard() {
   updateNightMode();
@@ -117,46 +163,67 @@ async function updateDashboard() {
     const speedEl = document.getElementById("speed");
     const newSpeed = data.recommended_speed_mph ?? "--";
 
-    if (speedEl.textContent !== String(newSpeed)) {
-    speedEl.classList.add("speed-change");
-    setTimeout(() => speedEl.classList.remove("speed-change"), 250);
+    if (speedEl && speedEl.textContent !== String(newSpeed)) {
+      speedEl.classList.add("speed-change");
+      setTimeout(() => speedEl.classList.remove("speed-change"), 250);
     }
 
-speedEl.textContent = newSpeed;
+    setText("speed", newSpeed);
 
     const riskEl = document.getElementById("risk");
-    riskEl.textContent = risk.text;
-    riskEl.className = `risk-value ${risk.className}`;
+    if (riskEl) {
+      riskEl.textContent = risk.text;
+      riskEl.className = `risk-value ${risk.className}`;
+    }
 
-    document.getElementById("risk-fill").style.width = `${risk.percent}%`;
+    const riskFill = document.getElementById("risk-fill");
+    if (riskFill) {
+      riskFill.style.width = `${risk.percent}%`;
+    }
 
-    document.getElementById("probability").textContent =
+    setText(
+      "probability",
       probability !== null && probability !== undefined
         ? probability.toFixed(3)
-        : "--";
+        : "--"
+    );
 
-    document.getElementById("current-speed").textContent =
+    setText(
+      "current-speed",
       data.speed_mph !== null && data.speed_mph !== undefined
         ? `${Math.round(data.speed_mph)} MPH`
-        : "--";
+        : "--"
+    );
 
-    document.getElementById("speed-limit").textContent =
+    setText(
+      "speed-limit",
       data.speed_limit_mph !== null && data.speed_limit_mph !== undefined
         ? `${Math.round(data.speed_limit_mph)} MPH`
-        : "--";
+        : "--"
+    );
 
-    document.getElementById("mode").textContent = data.mode ?? "--";
-    document.getElementById("updated").textContent = formatTime(data.timestamp);
+    setText("mode", data.mode ?? "--");
+    setText("updated", formatTime(data.timestamp));
 
     const connection = document.getElementById("connection");
-    connection.textContent = "Connected";
-    connection.className = "connected";
+    if (connection) {
+      connection.textContent = "Connected";
+      connection.className = "connected";
+    }
   } catch (error) {
     const connection = document.getElementById("connection");
-    connection.textContent = "Disconnected";
-    connection.className = "disconnected";
+    if (connection) {
+      connection.textContent = "Disconnected";
+      connection.className = "disconnected";
+    }
   }
 }
 
+
 updateDashboard();
-setInterval(updateDashboard, 3000);
+fetchSensors();
+
+setInterval(() => {
+  updateDashboard();
+  fetchSensors();
+}, 3000);
