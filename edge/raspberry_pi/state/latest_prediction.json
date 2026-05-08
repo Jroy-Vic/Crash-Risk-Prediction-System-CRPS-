@@ -1,12 +1,12 @@
 {
-  "timestamp": "2026-05-07T23:29:30.341559",
+  "timestamp": "2026-05-08T04:27:22.284001",
   "segment_id": "us101_slo_observed",
   "station_id": "KSBP",
   "speed_mph": 69.0,
   "free_flow_speed_mph": 69.0,
   "speed_ratio": 1.0,
   "speed_limit_mph": 65,
-  "future_congestion_probability": 0.011372420005500317,
+  "future_congestion_probability": 0.002969422610476613,
   "recommended_speed_mph": 65,
   "mode": "online_backend"
 }

@@ -10,6 +10,9 @@ class PredictionRequest(BaseModel):
     free_flow_speed_mph: float
     speed_ratio: float
     speed_limit_mph: Optional[float] = None
+    vehicle_speed_mph: float = 0.0
+    heading_deg: float = 0.0
+    horizon_seconds: int = 300
 
     flow_veh_per_interval: float
     occupancy_pct: float
@@ -19,6 +22,7 @@ class PredictionRequest(BaseModel):
     speed_rolling_std_15min: Optional[float] = 0
     flow_rolling_mean_15min: Optional[float] = 0
     occupancy_rolling_mean_15min: Optional[float] = 0
+    demo_probability: float | None = None
 
     latitude: Optional[float] = 0
     longitude: Optional[float] = 0
@@ -51,3 +55,4 @@ class PredictionResponse(BaseModel):
     future_congestion_probability: float
     recommended_speed_mph: int
     model_name: str
+    

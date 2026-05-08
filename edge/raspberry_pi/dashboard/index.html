@@ -4,66 +4,165 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>CRPS Dashboard</title>
-  <link rel="stylesheet" href="/static/style.css" />
+  <link rel="stylesheet" href="/static/style.css?v=301" />
 </head>
 
 <body>
   <main class="app">
     <header class="top-bar">
-      <div>Last Updated: <span id="updated">--</span></div>
-      <div id="connection" class="connected">Connecting...</div>
+      <div class="connection-wrap">
+        <span id="connection-dot" class="connection-dot"></span>
+        <span id="connection" class="connected">Connected</span>
+      </div>
+
+      <div class="updated-wrap">
+        Last Updated: <span id="updated">--</span>
+      </div>
+
+      <button id="mode-toggle" class="mode-toggle" type="button">Analytics</button>
     </header>
 
-    <section id="alert-banner" class="alert-banner hidden">
-      SLOW DOWN
-    </section>
+    <section id="alert-banner" class="alert-banner hidden">SLOW DOWN</section>
 
-    <div id="speed-shell" class="speed-shell">
-      <section class="speed-sign">
-        <div class="sign-text">SPEED</div>
-        <div class="sign-text">LIMIT</div>
-        <div id="speed">--</div>
+    <!-- DRIVE MODE: original/simple driver-facing UI -->
+    <section id="drive-mode" class="view active-view">
+      <div id="speed-shell" class="speed-shell drive-speed-shell">
+        <section class="drive-speed-sign">
+          <div class="drive-sign-text">SPEED</div>
+          <div class="drive-sign-text">LIMIT</div>
+          <div id="speed">--</div>
+        </section>
+      </div>
+
+      <section class="panel risk-panel drive-risk-panel">
+        <div class="risk-header-row">
+          <span class="label">RISK LEVEL</span>
+          <span id="risk" class="risk-value">--</span>
+        </div>
+        <div class="risk-bar">
+          <div id="risk-fill"></div>
+          <div id="risk-pointer" class="risk-pointer"></div>
+        </div>
       </section>
-    </div>
 
-    <section class="panel risk-panel">
-      <div>
-        <span class="label">RISK LEVEL</span>
-      </div>
-      <span id="risk" class="risk-value">--</span>
-      <div class="risk-bar">
-        <div id="risk-fill"></div>
-      </div>
+      <section class="panel compact-status drive-current-speed">
+        <span class="label">TRAFFIC SPEED</span>
+        <span id="current-speed-drive-main" class="value">--</span>
+      </section>
     </section>
 
-    <section class="panel">
-      <span class="label">CONGESTION PROBABILITY</span>
-      <span id="probability" class="value">--</span>
-    </section>
+    
+    <!-- ANALYTICS MODE: professional detailed UI -->
+    <section id="analytics-mode" class="view hidden">
+      <section class="analytics-risk-card glass-card">
+        <div>
+          <div class="analytics-label">UPCOMING RISK</div>
+          <div class="analytics-horizon">5 MIN AHEAD</div>
+        </div>
+        <div id="analytics-risk" class="analytics-risk-value">--</div>
+        <div class="analytics-risk-bar"><div id="analytics-risk-knob"></div></div>
+      </section>
 
-    <section class="panel">
-      <span class="label">CURRENT SPEED</span>
-      <span id="current-speed" class="value">--</span>
-    </section>
+      <section class="analytics-speed-card">
+        <div class="advisory-block">
+          <div class="analytics-speed-label">ADVISORY SPEED</div>
+          <div class="analytics-speed-value"><span id="speed-analytics">--</span></div>
+          <div class="analytics-mph">MPH</div>
+        </div>
+        <div class="speed-divider"></div>
+        <div class="mini-speed-limit">
+          <div>SPEED</div>
+          <div>LIMIT</div>
+          <strong id="mini-speed-limit-value">--</strong>
+        </div>
+      </section>
 
-    <section class="panel">
-      <span class="label">SPEED LIMIT CAP</span>
-      <span id="speed-limit" class="value">--</span>
-    </section>
+      <section class="analytics-prob-card glass-card">
+        <div class="prob-title">5-MIN CONGESTION PROBABILITY</div>
+        <div class="analytics-grid">
+          <div class="donut-wrap">
+            <div class="donut" id="probability-donut">
+              <div class="donut-inner">
+                <div id="probability" class="donut-number">--</div>
+                <div id="probability-label" class="donut-label">--</div>
+              </div>
+            </div>
+          </div>
 
-    <section class="panel">
-      <span class="label">MODE</span>
-      <span id="mode" class="mode-value">--</span>
-    </section>
+          <div class="metric-tile border-left">
+            <div class="metric-icon target-icon">◎</div>
+            <div class="metric-title">TARGET</div>
+            <div id="target-distance" class="metric-value">--</div>
+          </div>
 
-    <section class="panel compact-status">
-      <span class="label">SYSTEM</span>
-      <span id="sensor-summary" class="value">GPS -- / Motion --</span>
+          <div class="metric-tile border-left">
+            <div class="metric-icon clock-icon">◴</div>
+            <div class="metric-title">ETA</div>
+            <div id="eta" class="metric-value">--</div>
+            <div class="metric-sub">(5 min)</div>
+          </div>
+
+          <div class="metric-tile border-left">
+            <div class="metric-icon road-icon">⇢</div>
+            <div class="metric-title">ROUTE MODE</div>
+            <div id="target-mode" class="metric-value small-metric">--</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="analytics-cards-grid">
+        <div class="analytics-stat-card glass-card">
+          <div class="stat-icon blue">☁</div>
+          <div>
+            <div class="stat-label">WEATHER</div>
+            <span id="weather-summary" class="stat-value">--</span>
+          </div>
+        </div>
+        
+        <div class="analytics-stat-card glass-card">
+          <div class="stat-icon yellow">◉</div>
+          <div>
+            <div class="stat-label">SPEED LIMIT CAP</div>
+            <div><span id="speed-limit" class="stat-value">--</span></div>
+          </div>
+        </div>
+
+        <div class="analytics-stat-card glass-card">
+          <div class="stat-icon purple">🧠</div>
+          <div>
+            <div class="stat-label">CONFIDENCE</div>
+            <div id="confidence" class="stat-value">--</div>
+          </div>
+        </div>
+
+        <div class="analytics-stat-card glass-card">
+          <div class="stat-icon cyan">🌎</div>
+          <div>
+            <div class="stat-label">SYSTEM STATUS</div>
+            <div id="sensor-summary-analytics" class="stat-value status-good">GPS -- / Motion --</div>
+          </div>
+        </div>
+
+        <div class="analytics-stat-card glass-card">
+          <div class="stat-icon purple">⚙</div>
+          <div>
+            <div class="stat-label">INFERENCE MODE</div>
+            <div id="mode" class="stat-value mode-value">--</div>
+          </div>
+        </div>
+      </section>
+
+
+      <section class="analytics-footer-card glass-card">
+        <div class="shield">▰</div>
+        <strong>CRPS</strong>
+        <span>Crash Risk Prediction System</span>
+      </section>
     </section>
 
     <footer>Crash Risk Prediction System (CRPS)</footer>
   </main>
 
-  <script src="/static/app.js?v=21"></script>
+  <script src="/static/app.js?v=301"></script>
 </body>
 </html>

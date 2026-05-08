@@ -4,7 +4,10 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 import uvicorn
+import requests
 
+
+BACKEND_URL = "http://Roys_MacBook:8000"
 
 BASE_DIR = Path(__file__).resolve().parent
 DASHBOARD_DIR = BASE_DIR / "dashboard"
@@ -14,6 +17,11 @@ app = FastAPI(title="CRPS Pi Dashboard")
 
 app.mount("/static", StaticFiles(directory=DASHBOARD_DIR), name="static")
 
+
+@app.get("/api/latest")
+def latest_proxy():
+    r = requests.get(f"{BACKEND_URL}/api/latest", timeout=3)
+    return r.json()
 
 @app.api_route("/", methods=["GET", "HEAD"])
 def dashboard():
