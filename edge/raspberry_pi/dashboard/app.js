@@ -554,16 +554,23 @@ async function updateDashboard() {
         ? `${Math.round(Number(speedLimit))} MPH`
         : "--";
 
-    setText("speed-limit", speedLimitText);
-    setText("speed-limit-drive", speedLimitText);
+   setText("speed-limit", speedLimitText);
 
-    setText(
-      "mini-speed-limit-value",
+    const speedLimitNumber =
       speedLimit !== null && speedLimit !== undefined
         ? Math.round(Number(speedLimit))
-        : "--"
-    );
+        : "--";
 
+    const speedLimitDriveEl = document.getElementById("speed-limit-drive");
+    if (speedLimitDriveEl) {
+      speedLimitDriveEl.innerHTML =
+        speedLimitNumber !== "--"
+          ? `<span>${speedLimitNumber}</span><small>MPH</small>`
+          : "--";
+    }
+
+    setText("mini-speed-limit-value", speedLimitNumber);
+    setText("mini-speed-limit-drive", speedLimitNumber);
     setText("mode", inferenceModeText);
     setText("mode-drive", routeModeText);
     setText("updated", formatTime(data.timestamp));

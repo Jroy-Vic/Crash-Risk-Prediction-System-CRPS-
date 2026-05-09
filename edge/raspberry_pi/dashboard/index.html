@@ -7,7 +7,7 @@
   content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
   />
   <title>CRPS Dashboard</title>
-  <link rel="stylesheet" href="/static/style.css?v=400" />
+  <link rel="stylesheet" href="/static/style.css?v=627" />
 </head>
 
 <body>
@@ -32,13 +32,56 @@
       SERVER DISCONNECTED · REDUCED ACCURACY
     </section>
 
-    <!-- DRIVE MODE: original/simple driver-facing UI -->
+    <!-- DRIVE MODE: driver-facing advisory UI -->
     <section id="drive-mode" class="view active-view">
       <div id="speed-shell" class="speed-shell drive-speed-shell">
-        <section class="drive-speed-sign">
-          <div class="drive-sign-text">SPEED</div>
-          <div class="drive-sign-text">LIMIT</div>
-          <div id="speed">--</div>
+        <section class="drive-speed-sign drive-advisory-card">
+          <div class="drive-card-top-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" focusable="false">
+              <path d="M12 3.2 18.5 6v5.1c0 4.1-2.6 7.9-6.5 9.7-3.9-1.8-6.5-5.6-6.5-9.7V6L12 3.2Z"></path>
+              <path d="m8.8 12.1 2.1 2.1 4.4-5.1"></path>
+            </svg>
+          </div>
+
+          <div class="drive-advisory-title">ADVISORY SPEED</div>
+          <div class="drive-advisory-subtitle">Recommended for current conditions</div>
+
+          <div id="speed" class="drive-advisory-value">--</div>
+
+          <div class="drive-mph-row">
+            <span></span>
+            <strong>MPH</strong>
+            <span></span>
+          </div>
+
+          <div class="drive-advisory-divider"></div>
+
+          <div class="drive-advisory-footer">
+            <div class="drive-guidance">
+              <svg class="drive-footer-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M12 3a9 9 0 1 0 9 9h-9V3Z"></path>
+                <path d="M12 3v9h9"></path>
+              </svg>
+
+              <div class="drive-guidance-text">
+                <div>Drive safely.</div>
+                <div>Conditions</div>
+                <div>may change.</div>
+              </div>
+            </div>
+
+            <div class="drive-footer-separator"></div>
+
+            <div class="drive-limit-info">
+              <div class="drive-limit-label">SPEED LIMIT</div>
+              <div id="speed-limit-drive" class="drive-limit-value">--</div>
+            </div>
+
+            <div class="drive-limit-badge">
+              <span>LIMIT</span>
+              <strong id="mini-speed-limit-drive">--</strong>
+            </div>
+          </div>
         </section>
       </div>
 
@@ -99,20 +142,20 @@
 
           <div class="metric-tile border-left">
             <div class="metric-icon target-icon">◎</div>
-            <div class="metric-title">TARGET</div>
+            <div class="metric-title">TARGET → Ahead Distance</div>
             <div id="target-distance" class="metric-value">--</div>
           </div>
 
           <div class="metric-tile border-left">
             <div class="metric-icon clock-icon">◴</div>
-            <div class="metric-title">ETA</div>
+            <div class="metric-title">ETA → Time Ahead</div>
             <div id="eta" class="metric-value">--</div>
             <div class="metric-sub">(5 min)</div>
           </div>
 
           <div class="metric-tile border-left">
             <div class="metric-icon road-icon">⇢</div>
-            <div class="metric-title">ROUTE MODE</div>
+            <div class="metric-title">ROUTE PREDICTION MODE</div>
             <div id="target-mode" class="metric-value small-metric">--</div>
           </div>
         </div>
@@ -124,14 +167,6 @@
           <div>
             <div class="stat-label">WEATHER</div>
             <span id="weather-summary" class="stat-value">--</span>
-          </div>
-        </div>
-        
-        <div class="analytics-stat-card glass-card">
-          <div class="stat-icon yellow">◉</div>
-          <div>
-            <div class="stat-label">SPEED LIMIT CAP</div>
-            <div><span id="speed-limit" class="stat-value">--</span></div>
           </div>
         </div>
 
@@ -171,6 +206,6 @@
     <footer>Crash Risk Prediction System (CRPS)</footer>
   </main>
 
-  <script src="/static/app.js?v=400"></script>
+  <script src="/static/app.js?v=627"></script>
 </body>
 </html>
