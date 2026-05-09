@@ -2,9 +2,12 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta
+  name="viewport"
+  content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+  />
   <title>CRPS Dashboard</title>
-  <link rel="stylesheet" href="/static/style.css?v=301" />
+  <link rel="stylesheet" href="/static/style.css?v=400" />
 </head>
 
 <body>
@@ -13,6 +16,7 @@
       <div class="connection-wrap">
         <span id="connection-dot" class="connection-dot"></span>
         <span id="connection" class="connected">Connected</span>
+        <span id="connection-spinner" class="connection-spinner hidden"></span>
       </div>
 
       <div class="updated-wrap">
@@ -23,6 +27,10 @@
     </header>
 
     <section id="alert-banner" class="alert-banner hidden">SLOW DOWN</section>
+
+    <section id="fallback-banner" class="fallback-banner hidden">
+      SERVER DISCONNECTED · REDUCED ACCURACY
+    </section>
 
     <!-- DRIVE MODE: original/simple driver-facing UI -->
     <section id="drive-mode" class="view active-view">
@@ -163,6 +171,6 @@
     <footer>Crash Risk Prediction System (CRPS)</footer>
   </main>
 
-  <script src="/static/app.js?v=301"></script>
+  <script src="/static/app.js?v=400"></script>
 </body>
 </html>

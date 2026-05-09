@@ -967,3 +967,85 @@ body.high-risk-mode {
   100% { transform: rotate(180deg); }
 }
 
+
+.fallback-banner {
+  margin-bottom: 14px;
+  padding: 12px 16px;
+  border-radius: 16px;
+  background: rgba(255, 197, 46, 0.14);
+  border: 1px solid rgba(255, 197, 46, 0.45);
+  color: #ffd35a;
+  text-align: center;
+  font-size: 0.95rem;
+  font-weight: 1000;
+  letter-spacing: 0.08em;
+  box-shadow: 0 0 18px rgba(255, 197, 46, 0.18);
+}
+
+.fallback-banner::before {
+  content: "⚠ ";
+}
+
+.reduced-accuracy-mode .app {
+  filter: saturate(0.85);
+}
+
+.reduced-accuracy-mode .analytics-speed-card,
+.reduced-accuracy-mode .drive-speed-shell {
+  opacity: 0.92;
+}
+
+body.day-mode {
+  background: radial-gradient(circle at top, #2b3036, #101418 70%);
+}
+
+body.night-mode {
+  background: radial-gradient(circle at top, #111416, #020303 72%);
+}
+
+body.night-mode .panel,
+body.night-mode .glass-card {
+  background: linear-gradient(145deg, rgba(14,16,19,0.98), rgba(3,4,5,0.98));
+}
+
+body.night-mode .drive-speed-sign {
+  background: #eeeeee;
+}
+
+
+@media (max-width: 600px) {
+  body.reduced-accuracy-mode .drive-current-speed {
+    transition: opacity 0.25s ease;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none;
+  }
+}
+
+html,
+body {
+  touch-action: manipulation;
+  overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
+}
+
+.connection-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255,255,255,0.25);
+  border-top-color: var(--yellow);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.connection-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}

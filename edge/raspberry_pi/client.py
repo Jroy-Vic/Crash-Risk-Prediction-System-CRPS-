@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+from unittest import result
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.append(str(ROOT))
@@ -180,7 +181,12 @@ def request_backend_prediction(config, payload):
 
     response.raise_for_status()
     result = response.json()
-    result["mode"] = "online_backend"
+
+    result["mode"] = result.get("mode", "online_backend")
+    result["inference_mode"] = "online_backend"
+    result["backend_reachable"] = True
+    result["accuracy_state"] = "normal"
+
     return result
 
 
@@ -242,6 +248,9 @@ def local_model_prediction(config, payload):
 
     return {
         "mode": "offline_model",
+        "inference_mode": "onnx_local",
+        "backend_reachable": False,
+        "accuracy_state": "reduced",
         "future_congestion_probability": probability,
         "recommended_speed_mph": recommended_speed,
     }
@@ -263,6 +272,9 @@ def rule_based_fallback(config, payload):
 
     return {
         "mode": "offline_rules",
+        "inference_mode": "rule_based",
+        "backend_reachable": False,
+        "accuracy_state": "reduced",
         "future_congestion_probability": None,
         "recommended_speed_mph": recommended_speed,
     }
@@ -312,6 +324,9 @@ def write_latest_prediction(payload, result):
         "future_congestion_probability": result.get("future_congestion_probability"),
         "recommended_speed_mph": result.get("recommended_speed_mph"),
         "mode": result.get("mode"),
+        "inference_mode": result.get("inference_mode", result.get("mode")),
+        "backend_reachable": result.get("backend_reachable"),
+        "accuracy_state": result.get("accuracy_state"),
     }
 
     with open(STATE_PATH, "w") as f:
@@ -415,7 +430,7 @@ def main():
         print(json.dumps(result, indent=2))
 
         print_result(result)
-        
+
         sensor_data = load_latest_sensors()
 
         poll_interval = choose_poll_interval(

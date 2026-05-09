@@ -4,16 +4,17 @@ from datetime import datetime, timezone
 import traceback
 import polars as pl
 from fastapi import FastAPI
+import uvicorn
 
-from services.backend.route_ahead_predictor import get_route_ahead_target_dict
-from services.backend.tomtom_client import fetch_tomtom_flow
+from route_ahead_predictor import get_route_ahead_target_dict
+from tomtom_client import fetch_tomtom_flow
 
 # Allow backend to import from src/
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.append(str(PROJECT_ROOT))
 
 from src.inference.predictor import TrafficRiskPredictor
-from services.backend.schemas import PredictionRequest, PredictionResponse
+from schemas import PredictionRequest, PredictionResponse
 
 
 app = FastAPI(
@@ -151,7 +152,6 @@ def predict_impl(request: PredictionRequest):
         result = predictor.predict_one(feature_row)
         
         probability = getattr(request, "demo_probability", None)
-        print("DEMO PROBABILITY:", probability)
 
         if probability is None:
             probability = result.future_congestion_probability
@@ -173,6 +173,7 @@ def predict_impl(request: PredictionRequest):
         )
 
     global latest_prediction
+    is_simulation = request.segment_id == "simulation_cycle"
 
     response = {
         "segment_id": result.segment_id,
@@ -198,7 +199,7 @@ def predict_impl(request: PredictionRequest):
 
         "mode": route_ahead["mode"],
         "route_mode": route_ahead["mode"],
-        "inference_mode": "simulation",
+        "inference_mode": "simulation" if is_simulation else "online_backend",
         "route_ahead": route_ahead,
         "eta_features": {
             "eta_hour": eta_hour,
@@ -244,3 +245,7 @@ def get_latest_prediction():
         }
 
     return latest_prediction
+
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)

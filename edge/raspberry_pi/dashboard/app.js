@@ -1,3 +1,4 @@
+let connectionState = "connected"; // connected | disconnected | loading
 let previousRisk = null;
 let audioUnlocked = false;
 let currentView = "drive";
@@ -102,7 +103,7 @@ function formatInferenceMode(mode) {
     simulation: "Simulation Mode",
     online_backend: "Live Prediction",
     onnx_local: "Offline Mode",
-    rule_based: "Rule Fallback"
+    rule_based: "Rule Fallback",
   };
 
   return map[mode] ?? String(mode).replaceAll("_", " ").replace(/\b\w/g, c => c.toUpperCase());
@@ -145,8 +146,7 @@ function getSpeedLimit(data) {
     data.speed_limit_mph ??
     data.speed_limit ??
     data.speed_limit_cap_mph ??
-    data.recommended_speed_mph ??
-    null
+    65
   );
 }
 
@@ -214,6 +214,37 @@ function animateDonut(donut, targetPct, color) {
 
   requestAnimationFrame(step);
 }
+
+
+function setConnectionState(newState) {
+  if (connectionState === newState) return;
+
+  connectionState = newState;
+
+  const conn = document.getElementById("connection");
+  const dot = document.getElementById("connection-dot");
+  const spinner = document.getElementById("connection-spinner");
+
+  if (!conn || !dot || !spinner) return;
+
+  dot.classList.remove("online", "offline");
+  spinner.classList.add("hidden");
+
+  if (newState === "connected") {
+    conn.textContent = "Connected";
+    conn.className = "connected";
+    dot.classList.add("online");
+  } else if (newState === "loading") {
+    conn.textContent = "Reconnecting";
+    conn.className = "disconnected";
+    spinner.classList.remove("hidden");
+  } else {
+    conn.textContent = "Disconnected";
+    conn.className = "disconnected";
+    dot.classList.add("offline");
+  }
+}
+
 
 function animateSlider(el, targetPct) {
   if (!el) return;
@@ -412,12 +443,51 @@ async function fetchSensors() {
 }
 
 
+function updateThemeByTime() {
+  const hour = new Date().getHours();
+  const isNight = hour >= 19 || hour < 6;
+
+  document.body.classList.toggle("night-mode", isNight);
+  document.body.classList.toggle("day-mode", !isNight);
+}
+
+
+function updateAccuracyState(data) {
+  const banner = document.getElementById("fallback-banner");
+
+  const reducedAccuracy =
+    data.accuracy_state === "reduced" ||
+    data.backend_reachable === false ||
+    data.inference_mode === "rule_based" ||
+    data.inference_mode === "onnx_local";
+
+  document.body.classList.toggle("reduced-accuracy-mode", reducedAccuracy);
+
+  if (banner) {
+    banner.classList.toggle("hidden", !reducedAccuracy);
+  }
+}
+
+
+
 async function updateDashboard() {
   try {
-    const res = await fetch("/api/latest", { cache: "no-store" });
+    const res = await fetch("/api/latest", {
+      cache: "no-store",
+      headers: {
+        "Cache-Control": "no-cache"
+      }
+    });
+
+    if (connectionState !== "connected") {
+      setConnectionState("connected");
+    }
+
     if (!res.ok) throw new Error("No latest prediction");
 
     const data = await res.json();
+
+    updateAccuracyState(data);
 
     const probability = getProbability(data);
     const risk = getRisk(probability);
@@ -506,7 +576,14 @@ async function updateDashboard() {
 
     const dot = document.getElementById("connection-dot");
     if (dot) dot.className = "connection-dot online";
-  } catch (error) {
+  }
+  
+  catch (error) {
+    if (connectionState === "connected") {
+      setConnectionState("loading");
+    } else {
+      setConnectionState("disconnected");
+    }
     console.error("Dashboard update failed:", error);
 
     const conn = document.getElementById("connection");
@@ -534,11 +611,14 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
+  updateThemeByTime();
   updateDashboard();
   fetchSensors();
+
+  const interval = /Mobi|Android/i.test(navigator.userAgent) ? 2000 : 3000;
 
   setInterval(() => {
     updateDashboard();
     fetchSensors();
-  }, 3000);
+  }, interval);
 });
