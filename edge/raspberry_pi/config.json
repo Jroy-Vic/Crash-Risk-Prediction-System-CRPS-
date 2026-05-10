@@ -1,5 +1,5 @@
 {
-  "backend_url": "http://roys-macbook:8000/predict",
+  "backend_url": "https://crps-backend-usok.onrender.com/predict",
   "request_timeout_sec": 3,
   "fallback_speed_mph": 45,
   "poll_interval_sec": 30,

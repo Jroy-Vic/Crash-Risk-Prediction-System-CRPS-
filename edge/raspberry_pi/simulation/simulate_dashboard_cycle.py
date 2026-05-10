@@ -1,8 +1,9 @@
 import time
-import requests
-from datetime import datetime
+import json
+from pathlib import Path
+from datetime import datetime, timezone
 
-BACKEND_URL = "http://Roys_MacBook:8000/predict"
+STATE_PATH = Path("edge/raspberry_pi/state/latest_prediction.json")
 
 SCENARIOS = [
     {
@@ -14,7 +15,6 @@ SCENARIOS = [
         "recommended_speed_mph": 65,
         "flow_veh_per_interval": 35,
         "occupancy_pct": 4,
-        "demo_probability": 0.05
     },
     {
         "name": "MEDIUM",
@@ -25,7 +25,6 @@ SCENARIOS = [
         "recommended_speed_mph": 55,
         "flow_veh_per_interval": 90,
         "occupancy_pct": 14,
-        "demo_probability": 0.55
     },
     {
         "name": "HIGH",
@@ -36,59 +35,101 @@ SCENARIOS = [
         "recommended_speed_mph": 30,
         "flow_veh_per_interval": 180,
         "occupancy_pct": 38,
-        "demo_probability": 0.92
     },
 ]
 
-BASE_PAYLOAD = {
+BASE_RESPONSE = {
     "segment_id": "simulation_cycle",
     "station_id": "SIM",
 
-    "latitude": 35.2828,
-    "longitude": -120.6596,
-    "heading_deg": 90,
-    "horizon_seconds": 300,
+    "current_latitude": 35.2828,
+    "current_longitude": -120.6596,
+    "target_latitude": 35.2828,
+    "target_longitude": -120.6596,
 
     "free_flow_speed_mph": 65,
     "speed_limit_mph": 65,
+
+    "model_name": "demo_simulation",
+    "mode": "simulation_cycle",
+    "route_mode": "simulation_cycle",
+    "inference_mode": "simulation",
+    "backend_reachable": True,
+    "accuracy_state": "normal",
 
     "temperature_f": 65,
     "visibility_miles": 10,
     "wind_speed_mph": 5,
     "precipitation_in": 0,
+    "precipitation": 0,
     "is_rain": 0,
 
-    "hour": 12,
-    "day_of_week": 3,
-    "month": 5,
-    "is_weekend": 0,
-    "rush_hour": 0,
-    "is_rush_hour": 0,
+    "weather": {
+        "temperature_f": 65,
+        "visibility_miles": 10,
+        "wind_speed_mph": 5,
+        "precipitation_in": 0,
+        "precipitation": 0,
+        "is_rain": 0,
+    },
+
+    "route_ahead": {
+        "latitude": 35.2828,
+        "longitude": -120.6596,
+        "horizon_seconds": 300,
+        "distance_ahead_m": 1609,
+        "eta_timestamp_utc": None,
+        "mode": "simulation_cycle",
+        "confidence": 1.0,
+    },
 }
 
 
-def send_scenario(scenario):
-    payload = {
-        **BASE_PAYLOAD,
-        **scenario,
+def ml_confidence_from_probability(probability):
+    return abs(probability - 0.5) * 2
+
+
+def write_scenario(scenario):
+    now = datetime.now(timezone.utc).isoformat()
+    probability = scenario["future_congestion_probability"]
+
+    output = {
+        **BASE_RESPONSE,
+        "current_speed_mph": scenario["speed_mph"],
+        "vehicle_speed_mph": scenario["vehicle_speed_mph"],
+        "speed_mph": scenario["speed_mph"],
+        "speed_ratio": scenario["speed_ratio"],
+        "current_congestion": probability >= 0.4,
+
+        "target_traffic": {
+            "speed_mph": scenario["speed_mph"],
+            "free_flow_speed_mph": BASE_RESPONSE["free_flow_speed_mph"],
+            "speed_ratio": scenario["speed_ratio"],
+            "tomtom_raw": None,
+        },
+
+        "future_congestion_probability": probability,
+        "congestion_probability_5min_ahead": probability,
+        "ml_confidence": ml_confidence_from_probability(probability),
+        "recommended_speed_mph": scenario["recommended_speed_mph"],
+
+        "simulation_state": scenario["name"],
+        "timestamp": now,
     }
 
-    try:
-        response = requests.post(BACKEND_URL, json=payload, timeout=5)
+    output["route_ahead"] = dict(BASE_RESPONSE["route_ahead"])
+    output["route_ahead"]["eta_timestamp_utc"] = now
 
-        print(f"{datetime.now().strftime('%H:%M:%S')} → {scenario['name']}")
+    STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
 
-        if response.status_code != 200:
-            print("ERROR:", response.status_code, response.text)
-        else:
-            data = response.json()
-            print(
-                f"   prob={round(data['congestion_probability_5min_ahead'], 3)} "
-                f"speed={data['recommended_speed_mph']}"
-            )
+    with open(STATE_PATH, "w") as f:
+        json.dump(output, f, indent=2)
 
-    except Exception as e:
-        print("REQUEST FAILED:", e)
+    print(
+        f"{datetime.now().strftime('%H:%M:%S')} → {scenario['name']} "
+        f"prob={probability:.2f} speed={scenario['recommended_speed_mph']} "
+        f"wrote={STATE_PATH}"
+    )
 
 
 def main():
@@ -96,7 +137,7 @@ def main():
 
     while True:
         for scenario in SCENARIOS:
-            send_scenario(scenario)
+            write_scenario(scenario)
             time.sleep(delay_sec)
 
 

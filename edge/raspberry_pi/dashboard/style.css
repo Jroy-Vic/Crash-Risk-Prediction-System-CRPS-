@@ -2929,3 +2929,23 @@ body.night-mode .high-border .drive-speed-sign.drive-advisory-card {
     margin-right: auto !important;
   }
 }
+
+.high-pulse .drive-advisory-card {
+  animation: gentleHighPulse 1.2s ease-in-out infinite;
+}
+
+@keyframes gentleHighPulse {
+  0%, 100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+
+  50% {
+    transform: scale(1.018);
+    filter: brightness(1.08);
+  }
+}
+
+.high-pulse::before {
+  animation: pulseGlow 1.2s infinite;
+}

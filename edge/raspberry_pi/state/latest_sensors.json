@@ -1,17 +1,18 @@
 {
-  "timestamp": "2026-05-10T05:23:02.031Z",
-  "source": "phone",
+  "timestamp": "2026-05-10T21:38:06.850786+00:00",
+  "scenario": "normal_cruise",
   "gps": {
     "fix_valid": false,
-    "error": "User denied Geolocation",
-    "timestamp": "2026-05-10T05:19:56.453Z"
+    "latitude": null,
+    "longitude": null,
+    "speed_mph": 0,
+    "heading_deg": 0
   },
   "imu": {
-    "accel_x": 0.155772745513916,
-    "accel_y": -8.545355806952715,
-    "accel_z": -4.825213294054567,
-    "hard_brake": true,
+    "hard_brake": false,
     "sharp_turn": false,
-    "timestamp": "2026-05-10T05:23:01.214Z"
+    "accel_x": 0.0,
+    "accel_y": 0.0,
+    "yaw_rate_deg_s": 0
   }
 }

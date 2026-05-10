@@ -1,5 +1,4 @@
 import requests
-import json
 from helpers.road_targeting import fetch_osm_road_point
 
 

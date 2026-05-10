@@ -4,21 +4,18 @@ from datetime import datetime, timezone
 
 from fastapi import FastAPI
 from fastapi.responses import FileResponse, JSONResponse
-from sensors.phone_sensor_api import router as phone_sensor_router
+from hardware.phone_sensor_api import router as phone_sensor_router
 from fastapi.staticfiles import StaticFiles
 import uvicorn
-import requests
 
 
 BASE_DIR = Path(__file__).resolve().parent
 DASHBOARD_DIR = BASE_DIR / "dashboard"
 STATE_PATH = BASE_DIR / "state" / "latest_prediction.json"
 SENSOR_PATH = BASE_DIR / "state" / "latest_sensors.json"
-BACKEND_URL = "http://roys-macbook:8000"
-BACKEND_TIMEOUT_SEC = 2.0
 
 app = FastAPI(title="CRPS Pi Dashboard")
-ENABLE_PHONE_SENSORS = True     # Set to False to disable phone sensor API and use external hardware sensors instead
+ENABLE_PHONE_SENSORS = False     # Set to False to disable phone sensor API and use external hardware sensors instead
 
 if ENABLE_PHONE_SENSORS:
     app.include_router(phone_sensor_router)
@@ -33,19 +30,6 @@ def dashboard():
 
 @app.api_route("/api/latest", methods=["GET", "HEAD"])
 def latest_prediction():
-    try:
-        response = requests.get(
-            f"{BACKEND_URL}/api/latest",
-            timeout=BACKEND_TIMEOUT_SEC,
-        )
-        response.raise_for_status()
-        data = response.json()
-
-        if data.get("status") != "no_prediction_yet":
-            return data
-    except Exception:
-        pass
-
     if STATE_PATH.exists():
         with open(STATE_PATH, "r") as f:
             return json.load(f)
@@ -63,7 +47,11 @@ def latest_prediction():
 def latest_sensors():
     if not SENSOR_PATH.exists():
         return {
-            "gps": {"fix_valid": True},
+            "gps": {
+                "fix_valid": False,
+                "latitude": None,
+                "longitude": None,
+            },
             "imu": {
                 "hard_brake": False,
                 "sharp_turn": False,

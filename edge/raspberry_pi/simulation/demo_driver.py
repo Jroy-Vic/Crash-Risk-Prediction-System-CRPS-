@@ -1,3 +1,7 @@
+# Demo driver to simulate GPS/IMU data for testing the dashboard and backend integration without needing real hardware.
+# Updates latest_sensors.json instead of latest_prediction.json
+# Note: Must run client.py simultaneously to see the effect of the simulated sensor data on the predictions.
+
 import json
 import math
 import time
