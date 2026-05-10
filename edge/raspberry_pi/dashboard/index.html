@@ -7,7 +7,7 @@
   content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
   />
   <title>CRPS Dashboard</title>
-  <link rel="stylesheet" href="/static/style.css?v=627" />
+  <link rel="stylesheet" href="/static/style.css?v=634" />
 </head>
 
 <body>
@@ -163,6 +163,14 @@
 
       <section class="analytics-cards-grid">
         <div class="analytics-stat-card glass-card">
+          <div class="stat-icon red">🚘</div>
+          <div>
+            <div class="stat-label">CURRENT TRAFFIC</div>
+            <div id="traffic-speed" class="stat-value">--</div>
+          </div>
+        </div>
+
+        <div class="analytics-stat-card glass-card">
           <div class="stat-icon blue">☁</div>
           <div>
             <div class="stat-label">WEATHER</div>
@@ -206,6 +214,6 @@
     <footer>Crash Risk Prediction System (CRPS)</footer>
   </main>
 
-  <script src="/static/app.js?v=627"></script>
+  <script src="/static/app.js?v=634"></script>
 </body>
 </html>

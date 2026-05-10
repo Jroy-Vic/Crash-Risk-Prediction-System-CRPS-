@@ -1,6 +1,6 @@
 import sys
 from pathlib import Path
-from unittest import result
+import os
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.append(str(ROOT))
@@ -26,7 +26,11 @@ STATE_PATH = Path("edge/raspberry_pi/state/latest_prediction.json")
 
 def load_config():
     with open(CONFIG_PATH, "r") as f:
-        return json.load(f)
+        config = json.load(f)
+
+    config["tomtom_api_key"] = os.getenv("TOMTOM_API_KEY") or config.get("tomtom_api_key")
+
+    return config
 
 def load_road_metadata_cache():
     if not ROAD_METADATA_CACHE_PATH.exists():
@@ -42,12 +46,12 @@ def build_sample_payload():
     return {
         "station_id": "demo_station_001",
         "segment_id": "demo_segment_001",
-        "timestamp": "2026-05-07T12:00:00",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
 
         "latitude": 34.0522,
         "longitude": -118.2437,
 
-        "speed_mph": speed_mph,
+        "speed_mph": speed_mph + (datetime.now().second % 10),
         "free_flow_speed_mph": free_flow_speed_mph,
         "speed_ratio": speed_mph / free_flow_speed_mph,
 
@@ -192,14 +196,18 @@ def request_backend_prediction(config, payload):
 
 import onnxruntime as ort
 import numpy as np
+_onnx_session = None
+_onnx_features = None
 
 def load_local_model(config):
-    session = ort.InferenceSession(config["local_model_path"])
+    global _onnx_session, _onnx_features
 
-    with open(config["local_features_path"], "r") as f:
-        feature_names = json.load(f)
+    if _onnx_session is None:
+        _onnx_session = ort.InferenceSession(config["local_model_path"])
+        with open(config["local_features_path"], "r") as f:
+            _onnx_features = json.load(f)
 
-    return session, feature_names
+    return _onnx_session, _onnx_features
 
 
 def recommend_speed(payload, future_congestion_probability):
@@ -245,14 +253,69 @@ def local_model_prediction(config, payload):
     probability = float(probs[0][1])
 
     recommended_speed = recommend_speed(payload, probability)
+    ml_confidence = abs(probability - 0.5) * 2
 
     return {
+        "segment_id": payload.get("segment_id"),
+        "station_id": payload.get("station_id"),
+
+        "current_latitude": payload.get("latitude"),
+        "current_longitude": payload.get("longitude"),
+        "target_latitude": payload.get("latitude"),
+        "target_longitude": payload.get("longitude"),
+
+        "current_speed_mph": payload.get("speed_mph"),
+        "vehicle_speed_mph": payload.get("vehicle_speed_mph", payload.get("speed_mph")),
+        "speed_mph": payload.get("speed_mph"),
+        "free_flow_speed_mph": payload.get("free_flow_speed_mph"),
+        "speed_ratio": payload.get("speed_ratio"),
+
+        "target_traffic": {
+            "speed_mph": payload.get("speed_mph"),
+            "free_flow_speed_mph": payload.get("free_flow_speed_mph"),
+            "speed_ratio": payload.get("speed_ratio"),
+            "tomtom_raw": None,
+        },
+
+        "future_congestion_probability": probability,
+        "congestion_probability_5min_ahead": probability,
+        "ml_confidence": ml_confidence,
+
+        "recommended_speed_mph": recommended_speed,
+
         "mode": "offline_model",
+        "route_mode": "local_cached_position",
         "inference_mode": "onnx_local",
         "backend_reachable": False,
         "accuracy_state": "reduced",
-        "future_congestion_probability": probability,
-        "recommended_speed_mph": recommended_speed,
+
+        "route_ahead": {
+            "latitude": payload.get("latitude"),
+            "longitude": payload.get("longitude"),
+            "distance_ahead_m": 0,
+            "eta_timestamp_utc": payload.get("timestamp"),
+            "mode": "local_cached_position",
+            "confidence": 0.35,
+        },
+
+        "temperature_f": payload.get("temperature_f"),
+        "visibility_miles": payload.get("visibility_miles"),
+        "wind_speed_mph": payload.get("wind_speed_mph"),
+        "precipitation_in": payload.get("precipitation_in", payload.get("precipitation", 0)),
+        "precipitation": payload.get("precipitation", payload.get("precipitation_in", 0)),
+        "is_rain": payload.get("is_rain"),
+
+        "weather": {
+            "temperature_f": payload.get("temperature_f"),
+            "visibility_miles": payload.get("visibility_miles"),
+            "wind_speed_mph": payload.get("wind_speed_mph"),
+            "precipitation_in": payload.get("precipitation_in", payload.get("precipitation", 0)),
+            "precipitation": payload.get("precipitation", payload.get("precipitation_in", 0)),
+            "is_rain": payload.get("is_rain"),
+        },
+
+        "timestamp": payload.get("timestamp"),
+        "prediction_generated_at": datetime.now(timezone.utc).isoformat(),
     }
 
 
@@ -264,19 +327,82 @@ def rule_based_fallback(config, payload):
     speed_ratio = speed_mph / free_flow if free_flow > 0 else 1.0
 
     if speed_ratio < 0.6 or occupancy_pct > 25:
+        probability = 0.85
         recommended_speed = 25
     elif speed_ratio < 0.8 or occupancy_pct > 18:
+        probability = 0.65
         recommended_speed = max(25, int(speed_mph - 10))
     else:
+        probability = 0.20
         recommended_speed = int(speed_mph)
 
+    if payload.get("speed_limit_mph") is not None:
+        recommended_speed = min(recommended_speed, int(payload["speed_limit_mph"]))
+
+    ml_confidence = abs(probability - 0.5) * 2
+
     return {
+        "segment_id": payload.get("segment_id"),
+        "station_id": payload.get("station_id"),
+
+        "current_latitude": payload.get("latitude"),
+        "current_longitude": payload.get("longitude"),
+        "target_latitude": payload.get("latitude"),
+        "target_longitude": payload.get("longitude"),
+
+        "current_speed_mph": speed_mph,
+        "vehicle_speed_mph": payload.get("vehicle_speed_mph", speed_mph),
+        "speed_mph": speed_mph,
+        "free_flow_speed_mph": free_flow,
+        "speed_ratio": speed_ratio,
+        "speed_limit_mph": payload.get("speed_limit_mph"),
+
+        "target_traffic": {
+            "speed_mph": speed_mph,
+            "free_flow_speed_mph": free_flow,
+            "speed_ratio": speed_ratio,
+            "tomtom_raw": None,
+        },
+
+        "future_congestion_probability": probability,
+        "congestion_probability_5min_ahead": probability,
+        "ml_confidence": ml_confidence,
+
+        "recommended_speed_mph": recommended_speed,
+
         "mode": "offline_rules",
+        "route_mode": "local_cached_position",
         "inference_mode": "rule_based",
         "backend_reachable": False,
         "accuracy_state": "reduced",
-        "future_congestion_probability": None,
-        "recommended_speed_mph": recommended_speed,
+
+        "route_ahead": {
+            "latitude": payload.get("latitude"),
+            "longitude": payload.get("longitude"),
+            "distance_ahead_m": 0,
+            "eta_timestamp_utc": payload.get("timestamp"),
+            "mode": "local_cached_position",
+            "confidence": 0.35,
+        },
+
+        "temperature_f": payload.get("temperature_f"),
+        "visibility_miles": payload.get("visibility_miles"),
+        "wind_speed_mph": payload.get("wind_speed_mph"),
+        "precipitation_in": payload.get("precipitation_in", payload.get("precipitation", 0)),
+        "precipitation": payload.get("precipitation", payload.get("precipitation_in", 0)),
+        "is_rain": payload.get("is_rain"),
+
+        "weather": {
+            "temperature_f": payload.get("temperature_f"),
+            "visibility_miles": payload.get("visibility_miles"),
+            "wind_speed_mph": payload.get("wind_speed_mph"),
+            "precipitation_in": payload.get("precipitation_in", payload.get("precipitation", 0)),
+            "precipitation": payload.get("precipitation", payload.get("precipitation_in", 0)),
+            "is_rain": payload.get("is_rain"),
+        },
+
+        "timestamp": payload.get("timestamp"),
+        "prediction_generated_at": datetime.now(timezone.utc).isoformat(),
     }
 
 
@@ -313,21 +439,15 @@ def print_result(result):
 def write_latest_prediction(payload, result):
     STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
 
-    output = {
-        "timestamp": payload.get("timestamp"),
-        "segment_id": payload.get("segment_id"),
-        "station_id": payload.get("station_id"),
-        "speed_mph": payload.get("speed_mph"),
-        "free_flow_speed_mph": payload.get("free_flow_speed_mph"),
-        "speed_ratio": payload.get("speed_ratio"),
-        "speed_limit_mph": payload.get("speed_limit_mph"),
-        "future_congestion_probability": result.get("future_congestion_probability"),
-        "recommended_speed_mph": result.get("recommended_speed_mph"),
-        "mode": result.get("mode"),
-        "inference_mode": result.get("inference_mode", result.get("mode")),
-        "backend_reachable": result.get("backend_reachable"),
-        "accuracy_state": result.get("accuracy_state"),
-    }
+    output = dict(result)
+
+    output.setdefault("timestamp", datetime.now(timezone.utc).isoformat())
+    output.setdefault("segment_id", payload.get("segment_id"))
+    output.setdefault("station_id", payload.get("station_id"))
+    output.setdefault("speed_mph", payload.get("speed_mph"))
+    output.setdefault("free_flow_speed_mph", payload.get("free_flow_speed_mph"))
+    output.setdefault("speed_ratio", payload.get("speed_ratio"))
+    output.setdefault("speed_limit_mph", payload.get("speed_limit_mph"))
 
     with open(STATE_PATH, "w") as f:
         json.dump(output, f, indent=2)
@@ -335,38 +455,24 @@ def write_latest_prediction(payload, result):
 
 def main():
     config = load_config()
+    last_good_payload = None
 
     while True:
         try:
             payload = build_live_payload(config)
             print("LIVE PAYLOAD:")
             print(json.dumps(payload, indent=2))
+            last_good_payload = payload
         except Exception as e:
-            print("Live data unavailable. Using sample payload.")
+            print("Live data unavailable.")
             print(f"Live data reason: {e}")
-            payload = build_sample_payload()
 
-            # logger.log_prediction({
-            #     "segment_id": payload.get("segment_id"),
-            #     "latitude": payload.get("latitude"),
-            #     "longitude": payload.get("longitude"),
-            #     "speed_mph": payload.get("speed_mph"),
-            #     "free_flow_speed_mph": payload.get("free_flow_speed_mph"),
-            #     "speed_ratio": payload.get("speed_ratio"),
-            #     "temperature_f": payload.get("temperature_f"),
-            #     "visibility_miles": payload.get("visibility_miles"),
-            #     "wind_speed_mph": payload.get("wind_speed_mph"),
-            #     "precipitation": payload.get("precipitation"),
-            #     "is_rain": payload.get("is_rain"),
-            #     "probability": probability,
-            #     "recommended_speed_mph": recommended_speed,
-            #     "speed_limit_mph": payload.get("speed_limit_mph"),
-            #     "risk_level": get_risk_level(probability),
-            #     "mode": "fallback",
-            #     "source": "local_or_rule_based",
-            #     "backend_status": "failed",
-            #     "error": str(e),
-            # })
+            if last_good_payload is not None:
+                payload = dict(last_good_payload)
+                print("Using last good live payload.")
+            else:
+                payload = build_sample_payload()
+                print("Using sample payload.")
 
         result = get_prediction(config, payload)
         write_latest_prediction(payload, result)

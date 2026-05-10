@@ -5,6 +5,7 @@ import traceback
 import polars as pl
 from fastapi import FastAPI
 import uvicorn
+import json
 
 from route_ahead_predictor import get_route_ahead_target_dict
 from tomtom_client import fetch_tomtom_flow
@@ -12,6 +13,7 @@ from tomtom_client import fetch_tomtom_flow
 # Allow backend to import from src/
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.append(str(PROJECT_ROOT))
+STATE_PATH = PROJECT_ROOT / "edge" / "raspberry_pi" / "state" / "latest_prediction.json"
 
 from src.inference.predictor import TrafficRiskPredictor
 from schemas import PredictionRequest, PredictionResponse
@@ -46,6 +48,11 @@ def predict(request: PredictionRequest):
             "detail": str(e),
             "traceback": traceback.format_exc(),
         }
+
+def ml_confidence_from_probability(probability: float) -> float:
+    if probability is None:
+        return None
+    return abs(probability - 0.5) * 2
 
 def predict_impl(request: PredictionRequest):
     """
@@ -174,6 +181,7 @@ def predict_impl(request: PredictionRequest):
 
     global latest_prediction
     is_simulation = request.segment_id == "simulation_cycle"
+    ml_confidence = ml_confidence_from_probability(probability)
 
     response = {
         "segment_id": result.segment_id,
@@ -191,8 +199,9 @@ def predict_impl(request: PredictionRequest):
 
         "target_traffic": target_traffic,
 
-       "future_congestion_probability": probability,
+        "future_congestion_probability": probability,
         "congestion_probability_5min_ahead": probability,
+        "ml_confidence": ml_confidence,
 
         "recommended_speed_mph": recommended_speed_mph,
         "model_name": result.model_name,
@@ -234,6 +243,10 @@ def predict_impl(request: PredictionRequest):
 
 @app.get("/api/latest")
 def get_latest_prediction():
+    if STATE_PATH.exists():
+        with open(STATE_PATH, "r") as f:
+            return json.load(f)
+
     if latest_prediction is None:
         return {
             "status": "no_prediction_yet",

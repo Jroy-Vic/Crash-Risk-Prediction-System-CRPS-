@@ -361,7 +361,7 @@ function updateWeather(data) {
 
 
 function updateConfidence(data) {
-  const confidence = data.route_ahead?.confidence ?? null;
+  const confidence = data.ml_confidence ?? null;
 
   setText(
     "confidence",
@@ -369,6 +369,17 @@ function updateConfidence(data) {
       ? `${Math.round(Number(confidence) * 100)}%`
       : "--"
   );
+}
+
+function updateTrafficSpeed(data) {
+  const trafficSpeed = getTrafficSpeed(data);
+
+  const trafficSpeedAnalyticsText =
+    trafficSpeed !== null && trafficSpeed !== undefined
+      ? `${Math.round(Number(trafficSpeed))} MPH`
+      : "--";
+
+  setText("traffic-speed", trafficSpeedAnalyticsText);
 }
 
 
@@ -469,23 +480,37 @@ function updateAccuracyState(data) {
 }
 
 
+// async function fetchLatest() {
+//   try {
+//     const res = await fetch("/api/latest", { cache: "no-store" });
+//     if (!res.ok) throw new Error("Backend failed");
+//     return await res.json();
+//   } catch {
+//     const res = await fetch("http://roys-macbook:8001/api/latest", {
+//       cache: "no-store"
+//     });
+//     if (!res.ok) throw new Error("Pi fallback failed");
+//     return await res.json();
+//   }
+// }
+
+async function fetchLatest() {
+  const res = await fetch("/api/latest?t=" + Date.now(), {
+    cache: "no-store"
+  });
+
+  if (!res.ok) throw new Error("Local API failed");
+  return await res.json();
+}
+
 
 async function updateDashboard() {
   try {
-    const res = await fetch("/api/latest", {
-      cache: "no-store",
-      headers: {
-        "Cache-Control": "no-cache"
-      }
-    });
+    const data = await fetchLatest();
 
     if (connectionState !== "connected") {
       setConnectionState("connected");
     }
-
-    if (!res.ok) throw new Error("No latest prediction");
-
-    const data = await res.json();
 
     updateAccuracyState(data);
 
@@ -501,8 +526,10 @@ async function updateDashboard() {
     updateRiskStyling(risk);
     updateRiskGauge(probability, risk);
     updateRouteAhead(data);
+    updateTrafficSpeed(data);
     updateWeather(data);
     updateConfidence(data);
+  
 
     setTextAnimated("risk", risk.text);
     setTextAnimated("analytics-risk", risk.text);

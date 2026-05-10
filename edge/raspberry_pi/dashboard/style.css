@@ -1126,7 +1126,7 @@ body {
   font-size: clamp(9.2rem, 32vw, 17rem);
   line-height: 0.82;
   font-weight: 1000;
-  letter-spacing: -0.055em;
+  letter-spacing: 0.15em;
   text-align: center;
   text-shadow: 0 4px 18px rgba(0,0,0,0.34);
 }
@@ -2897,6 +2897,7 @@ body.night-mode .high-border .drive-speed-sign.drive-advisory-card {
   .drive-advisory-value {
     margin-top: 16px !important;
     margin-bottom: 6px !important;
+    letter-spacing: 0.15em;
   }
 
   .drive-mph-row {
@@ -2907,5 +2908,24 @@ body.night-mode .high-border .drive-speed-sign.drive-advisory-card {
 @media (max-width: 600px) {
   .drive-advisory-footer {
     grid-template-columns: 1.5fr 1px 0.8fr 56px;
+  }
+}
+
+@media (max-width: 600px) {
+  #speed.drive-advisory-value,
+  .drive-advisory-value {
+    display: block;
+    width: 100%;
+    text-align: center;
+
+    letter-spacing: 0.0em !important;
+    padding-left: 0.03em;
+
+    font-size: clamp(10.5rem, 36vw, 14rem) !important;
+    line-height: 0.76 !important;
+
+    transform: none !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
   }
 }
