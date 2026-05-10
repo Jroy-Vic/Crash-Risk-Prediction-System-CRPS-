@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 
 from fastapi import FastAPI
 from fastapi.responses import FileResponse, JSONResponse
+from sensors.phone_sensor_api import router as phone_sensor_router
 from fastapi.staticfiles import StaticFiles
 import uvicorn
 import requests
@@ -17,6 +18,10 @@ BACKEND_URL = "http://roys-macbook:8000"
 BACKEND_TIMEOUT_SEC = 2.0
 
 app = FastAPI(title="CRPS Pi Dashboard")
+ENABLE_PHONE_SENSORS = True     # Set to False to disable phone sensor API and use external hardware sensors instead
+
+if ENABLE_PHONE_SENSORS:
+    app.include_router(phone_sensor_router)
 
 app.mount("/static", StaticFiles(directory=DASHBOARD_DIR), name="static")
 

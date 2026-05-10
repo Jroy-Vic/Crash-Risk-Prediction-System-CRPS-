@@ -43,24 +43,25 @@ def fetch_tomtom_traffic(config):
         "speed_ratio": speed / free_flow if free_flow > 0 else 1.0,
     }
 
-def fetch_targeted_tomtom_traffic(config):
-    if "target_latitude" in config and "target_longitude" in config:
-        road = {
-            "latitude": config["target_latitude"],
-            "longitude": config["target_longitude"],
-            "osm_way_id": "manual",
-            "road_name": "manual_target",
-            "road_ref": config.get("target_road_ref", "101"),
-        }
-    else:
-        road = fetch_osm_road_point(config)
+def fetch_targeted_tomtom_traffic(lat=None, lon=None, config=None):
+    if config is None:
+        raise ValueError("config is required")
 
     targeted_config = dict(config)
-    targeted_config["latitude"] = road["latitude"]
-    targeted_config["longitude"] = road["longitude"]
 
-    traffic = fetch_tomtom_traffic(targeted_config)
-    return traffic
+    if lat is not None and lon is not None:
+        targeted_config["latitude"] = lat
+        targeted_config["longitude"] = lon
+    elif "target_latitude" in config and "target_longitude" in config:
+        targeted_config["latitude"] = config["target_latitude"]
+        targeted_config["longitude"] = config["target_longitude"]
+    else:
+        road = fetch_osm_road_point(config)
+        targeted_config["latitude"] = road["latitude"]
+        targeted_config["longitude"] = road["longitude"]
+
+    return fetch_tomtom_traffic(targeted_config)
+
 
 def fetch_metar_weather(config):
     station = config["metar_station"]

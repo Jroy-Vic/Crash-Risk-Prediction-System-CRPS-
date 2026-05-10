@@ -17,12 +17,16 @@ logger = CRPSLogger()
 
 from src.features.feature_reconstructor import reconstruct_features
 from src.hardware.sensor_reader import load_latest_sensors
+from edge.raspberry_pi.sensors.sensor_sources import load_hardware_sensor_data, load_sensor_data
 from src.hardware.refresh_controller import choose_poll_interval
 
 CONFIG_PATH = Path("edge/raspberry_pi/config.json")
 ROAD_METADATA_CACHE_PATH = Path("edge/raspberry_pi/helpers/cache/road_metadata_cache.json")
 STATE_PATH = Path("edge/raspberry_pi/state/latest_prediction.json")
 
+DEMO_BACKEND_FAILURE = True
+DEMO_FAILURE_AFTER_LOOPS = 5
+DEMO_FAILURE_DURATION_LOOPS = 5
 
 def load_config():
     with open(CONFIG_PATH, "r") as f:
@@ -88,8 +92,24 @@ def build_sample_payload():
 def build_live_payload(config):
     road_cache = load_road_metadata_cache()
     now = datetime.now()
+    sensor_data = load_sensor_data()
+    gps = sensor_data.get("gps", {})
 
-    traffic = fetch_targeted_tomtom_traffic(config)
+    vehicle_speed = gps.get("speed_mph")
+
+    traffic = fetch_targeted_tomtom_traffic(
+        lat=gps.get("latitude"),
+        lon=gps.get("longitude"),
+        config=config
+    )
+
+    vehicle_speed = gps.get("speed_mph")
+    if vehicle_speed is None:
+        vehicle_speed = traffic["speed_mph"]
+
+    heading_deg = gps.get("heading_deg")
+    if heading_deg is None:
+        heading_deg = config.get("default_heading_deg", 0.0)
 
     try:
         weather = fetch_metar_weather(config)
@@ -114,8 +134,10 @@ def build_live_payload(config):
         "segment_id": config.get("segment_id", "slo_live_segment"),
         "timestamp": now.isoformat(),
 
-        "latitude": road_cache.get("target_latitude", config["latitude"]),
-        "longitude": road_cache.get("target_longitude", config["longitude"]),
+        "latitude": gps.get("latitude", road_cache.get("target_latitude", config["latitude"])),
+        "longitude": gps.get("longitude", road_cache.get("target_longitude", config["longitude"])),
+        "vehicle_speed_mph": vehicle_speed,
+        "heading_deg": heading_deg,
 
         "speed_mph": traffic["speed_mph"],
         "free_flow_speed_mph": traffic["free_flow_speed_mph"],
@@ -457,6 +479,9 @@ def main():
     config = load_config()
     last_good_payload = None
 
+    # loop_count = 0
+    # real_backend_url = config["backend_url"]
+
     while True:
         try:
             payload = build_live_payload(config)
@@ -473,6 +498,18 @@ def main():
             else:
                 payload = build_sample_payload()
                 print("Using sample payload.")
+
+        # loop_count += 1
+        # demo_step = loop_count % 2
+
+        # if DEMO_BACKEND_FAILURE:
+        #     if demo_step == 1:
+        #         config["backend_url"] = real_backend_url
+        #         print("DEMO MODE: Backend active.")
+
+        #     elif demo_step == 0:
+        #         config["backend_url"] = "http://127.0.0.1:9999/predict"
+        #         print("DEMO MODE: Backend disconnected. Using ONNX local fallback.")
 
         result = get_prediction(config, payload)
         write_latest_prediction(payload, result)
@@ -537,7 +574,7 @@ def main():
 
         print_result(result)
 
-        sensor_data = load_latest_sensors()
+        sensor_data = load_sensor_data()
 
         poll_interval = choose_poll_interval(
             sensor_data,

@@ -1,22 +1,17 @@
 {
-  "timestamp": "2026-05-08T05:28:09.186194+00:00",
-  "source": "simulated",
+  "timestamp": "2026-05-10T05:23:02.031Z",
+  "source": "phone",
   "gps": {
-    "latitude": 35.24125,
-    "longitude": -120.6385,
-    "vehicle_speed_mph": 52.3,
-    "heading_deg": 24.6,
-    "gps_quality": "simulated",
-    "fix_valid": true
+    "fix_valid": false,
+    "error": "User denied Geolocation",
+    "timestamp": "2026-05-10T05:19:56.453Z"
   },
   "imu": {
-    "accel_x_mps2": 0.002,
-    "accel_y_mps2": 0.004,
-    "accel_z_mps2": 9.809,
-    "gyro_z_rps": 0.002,
-    "hard_brake": false,
+    "accel_x": 0.155772745513916,
+    "accel_y": -8.545355806952715,
+    "accel_z": -4.825213294054567,
+    "hard_brake": true,
     "sharp_turn": false,
-    "imu_quality": "simulated"
-  },
-  "scenario": "normal"
+    "timestamp": "2026-05-10T05:23:01.214Z"
+  }
 }
